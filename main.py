@@ -1,5 +1,6 @@
 import sys
-from system import System, Protocol, CacheConfig
+from system import System, Protocol
+from cache import CacheConfig
 
 def preprocess_data(data: str):
     split_lines = data.split('\n')
@@ -31,7 +32,7 @@ if __name__ == "__main__":
     print(f'Protocol: {protocol}\nTrace file: {trace}\nCache size: {cache_size} bytes\nAssociativiy: {associativity}-way\nBlock size: {block_size} bytes')
 
     cacheConfig = CacheConfig(size=cache_size, associativity=associativity, block_size=block_size, word_size=word_size)
-    system = System(protocol=protocol, processor_num=processor_num, cache_config=CacheConfig)
+    system = System(protocol=protocol, processor_num=processor_num, cache_config=cacheConfig)
 
     # Read trace file and feed to system
     for i in range(0, processor_num):
