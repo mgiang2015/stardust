@@ -1,5 +1,4 @@
 import sys
-from cache import Cache
 from system import System, Protocol, CacheConfig
 
 if __name__ == "__main__":
