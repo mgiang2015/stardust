@@ -9,6 +9,33 @@ class CoreTracker:
         self.num_private_access = 0     # Number of accesses to private data (eg access line while in modified state)
         self.num_shared_access = 0      # Number of accesses to shared data (eg access line while in shared state)
 
+    def track_compute(self, cycles: int):
+        self.overall_cycles += cycles
+        self.compute_cycles += cycles
+
+    def track_stall(self, cycles: int):
+        self.overall_cycles += cycles
+        self.compute_cycles += cycles
+
+    # Implement private / shared access as well
+    def track_load(self, hit: bool):
+        self.num_load += 1
+        if hit:
+            self.overall_cycles += 1
+        else:
+            # Miss: core stalls for 101 cycles
+            self.track_stall(cycles=101)
+            self.num_miss += 1
+
+    def track_store(self, hit: bool):
+        self.num_store += 1
+        if hit:
+            self.overall_cycles += 1
+        else:
+            # Miss: core stalls for 101 cycles
+            self.track_stall(cycles=101)
+            self.num_miss += 1
+
 class BusTracker:
     def __init__(self) -> None:
         self.data_traffic = 0           # Amount of data traffic in bytes

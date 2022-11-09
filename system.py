@@ -39,3 +39,10 @@ class System:
     def trace(self):
         for thread in self.threads:
             thread.start()
+
+        # Wait for all threads to finish
+        for thread in self.threads:
+            thread.join()
+
+        for core in self.cores:
+            core.print_stats()
