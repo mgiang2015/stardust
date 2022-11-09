@@ -5,4 +5,6 @@ __pycache__/
 venv/
 
 # trace folder
-traces/
+traces/blackscholes_*
+traces/bodytrack_*
+traces/fluidanimate_*
