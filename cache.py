@@ -101,7 +101,7 @@ class Cache:
         hit_block = self.check_exist(tag, cache_index)
         if hit_block != -1: # Hit!
             self.log(f'PROCESSOR LOAD HIT!')
-            self.blocks[cache_index][hit_block].set_last_used(self.num_operation)
+            self.blocks[cache_index][hit_block].last_used = self.num_operation
         
         self.num_operation = self.num_operation + 1
         return hit_block > -1
@@ -128,6 +128,9 @@ class Cache:
         
         block = self.blocks[cache_index][block_index]
         block.state = block.get_next_state(op=MemOperation.BUS_LOAD, source=BlockSource.LOCAL_CACHE)
+        block.last_used = self.num_operation
+
+        self.num_operation += 1
         return True
 
     def bus_store(self, tag, cache_index, offset):
