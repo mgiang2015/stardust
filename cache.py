@@ -163,10 +163,12 @@ class Cache:
                     min_last_used = block.last_used
 
             # Invalidate chosen block
+            self.log(f'Evicting block with tag {chosen_blk.tag}')
             chosen_blk.state = BlockState.INVALID
         
         # Load block into cache
         chosen_blk.tag = tag
+        chosen_blk.last_used = self.num_operation
 
         # Set new state
         chosen_blk.state = chosen_blk.get_next_state(op=op, source=source)
