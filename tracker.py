@@ -1,3 +1,5 @@
+from enums import BlockSource
+
 class CoreTracker:
     def __init__(self) -> None:
         self.overall_cycles = 0         # Overall Execution Cycles (total execution time basically)
@@ -18,22 +20,31 @@ class CoreTracker:
         self.compute_cycles += cycles
 
     # Implement private / shared access as well
-    def track_load(self, hit: bool):
+    # words = number of words transferred between 2 caches. Only used for REMOTE_CACHE
+    def track_load(self, source: BlockSource, words: int):
         self.num_load += 1
-        if hit:
+        if source == BlockSource.LOCAL_CACHE:
             self.overall_cycles += 1
-        else:
-            # Miss: core stalls for 101 cycles
-            self.track_stall(cycles=101)
+        elif source == BlockSource.REMOTE_CACHE:
+            # remote_cache: core stalls for {2 * words} cycles
+            self.track_stall(cycles=2*words)
+            self.num_miss += 1
+        elif source == BlockSource.MEMORY:
+            # memory: core stalls for 100 cycles
+            self.track_stall(cycles=100)
             self.num_miss += 1
 
-    def track_store(self, hit: bool):
+    def track_store(self, source: BlockSource, words: int):
         self.num_store += 1
-        if hit:
+        if source == BlockSource.LOCAL_CACHE:
             self.overall_cycles += 1
-        else:
-            # Miss: core stalls for 101 cycles
-            self.track_stall(cycles=101)
+        elif source == BlockSource.REMOTE_CACHE:
+            # remote_cache: core stalls for {2 * words} cycles
+            self.track_stall(cycles=2*words)
+            self.num_miss += 1
+        elif source == BlockSource.MEMORY:
+            # memory: core stalls for 100 cycles
+            self.track_stall(cycles=100)
             self.num_miss += 1
 
 class BusTracker:

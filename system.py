@@ -1,14 +1,9 @@
 import threading
-from enum import Enum
+from enums import Protocol
 from cache import Cache, CacheConfig
 from core import Core
 from tracker import CoreTracker, BusTracker
 from bus import Bus
-
-class Protocol(Enum):
-    MESI = 0
-    DRAGON = 1
-    NONE = 2
 
 # shared memory class
 class Memory:
@@ -22,8 +17,10 @@ class System:
         self.bus = Bus(BusTracker())
         self.cores = []
         for i in range(0, processor_num):
-            self.cores.append(Core(id=i, cache=Cache(cache_config=cache_config), tracker=CoreTracker()))
-        
+            new_cache = Cache(id=i, cache_config=cache_config)
+            # Both bus and core has access to given cache
+            self.cores.append(Core(id=i, bus=self.bus, cache=new_cache, tracker=CoreTracker()))
+            self.bus.add_cache(new_cache)
         self.threads = []
 
     def get_protocol(self) -> str:

@@ -1,5 +1,5 @@
-from enum import Enum
-import math
+from enums import BlockState, MemOperation, BlockSource
+
 """
 CacheConfig: structure for cache configuration
 """
@@ -37,6 +37,25 @@ class CacheBlock:
 
     def set_last_used(self, new_last_used: int):
         self.last_used = new_last_used
+    
+    """
+    Simulate cache's state machine for MESI / DRAGON
+    """
+    def get_next_state(self, op: MemOperation, source: BlockSource) -> BlockState:
+        if op == MemOperation.PR_LOAD:
+            if self.state == BlockState.INVALID and source == BlockSource.MEMORY:
+                return BlockState.EXCLUSIVE
+            elif self.state == BlockState.INVALID and source == BlockSource.REMOTE_CACHE:
+                return BlockState.SHARED
+            else:
+                return self.state
+        elif op == MemOperation.BUS_LOAD:
+            if self.state == BlockState.EXCLUSIVE or self.state == BlockState.MODIFIED:
+                return BlockState.SHARED
+            else:
+                return self.state
+        else: # More to come
+            return self.state
 
 """
 Cache: Represents an L1 Cache
@@ -44,9 +63,12 @@ Cache: Represents an L1 Cache
 - Cache should use LRU protocol
 """
 class Cache:
-    def __init__(self, cache_config: CacheConfig) -> None:
+    def __init__(self, id: int, cache_config: CacheConfig) -> None:
         self.config = cache_config
-        
+        self.id = id
+        # For LRU implementation. Each cache block receives a new last_used each load/store
+        self.num_operation = 0
+
         self.blocks = []
         num_sets = int(self.config.size / self.config.block_size / self.config.associativity)
         for set in range(0, num_sets):
@@ -55,32 +77,100 @@ class Cache:
             for _ in range(0, self.config.associativity):
                 self.blocks[set].append(CacheBlock(self.config.block_size, self.config.word_size))
 
-        # For LRU implementation. Each cache block receives a new last_used each load/store
-        self.operation_num = 0
+       
 
-    def process_address(self, address: str):
-        # Convert address to int
-        address = int(address, 16)
+    """
+    A hit happens when blocks[cache_index] returns a set of blocks, in which one has tag === given tag AND that block is not invalid
+    Returns index of block in the given set
+    """
+    def check_exist(self, tag, cache_index) -> int:
+        for block_id, block in enumerate(self.blocks[cache_index]):
+            if block.tag == tag and not block.is_invalid():
+                return block_id
+        
+        return -1
 
-        num_block_entry = int(self.config.block_size / self.config.word_size)                   # 8
-        num_set = int(self.config.size / self.config.block_size / self.config.associativity)    # 64
+    """
+    processor_load: load instruction issued by processor
+        If hit: report hit to processor. Set block's last used to num_operation.
+        If miss: Report miss to processor
+        num_operation++
+    """
+    def processor_load(self, tag, cache_index, offset) -> bool:
+        self.log(f'Handling processor load at tag {tag}, index {cache_index} and offset {offset}')
+        hit_block = self.check_exist(tag, cache_index)
+        if hit_block != -1: # Hit!
+            self.log(f'PROCESSOR LOAD HIT!')
+            self.blocks[cache_index][hit_block].set_last_used(self.num_operation)
+        
+        self.num_operation = self.num_operation + 1
+        return hit_block > -1
 
-        offset = address % (num_block_entry)
-        cache_index = (address >> math.sqrt(num_block_entry)) % num_set
-        tag = address >> (math.sqrt(num_block_entry) + math.sqrt(num_set))
-
-        return tag, cache_index, offset
-
-    def load_address(self, address: str):
-        # Implement MESI n DRAGON here
+    """
+    processor_store: store instruction issued by processor
+        If hit: report hit to processor. Change state accordingly. Use state machine to change state accordingly.
+        If miss: Handle LRU accordingly. Report miss to processor. Use state machine to change state accordingly.
+        Set block's last used to num_operation. num_operation++
+    """
+    def processor_store(self, tag, cache_index, offset):
         pass
     
-    def store_address(self, address: str):
-        # Implement MESI and DRAGON here
+    """
+    bus_load: Another remote cache is asking to read a block that you might have
+        If you have it: return True. Use state machine to change state accordingly.
+        If you don't: return False. No state change
+    """
+    def bus_load(self, tag, cache_index, offset):
+        self.log(f'Handling bus load at tag {tag}, index {cache_index} and offset {offset}')
+        block_index = self.check_exist(tag, cache_index)
+        if block_index == -1:
+            return False
+        
+        block = self.blocks[cache_index][block_index]
+        block.state = block.get_next_state(op=MemOperation.BUS_LOAD, source=BlockSource.LOCAL_CACHE)
+        return True
+
+    def bus_store(self, tag, cache_index, offset):
         pass
 
-class BlockState(Enum):
-    MODIFIED = 0
-    EXCLUSIVE = 1
-    SHARED = 2
-    INVALID = 3
+    def bus_load_exclusive(self, tag, cache_index, offset):
+        pass
+
+    def bus_update(self, tag, cache_index, offset):
+        pass
+
+    def flush(self, tag, cache_index, offset):
+        pass
+
+    """
+    receive_block_from_bus: Adds new block to cache. Handle LRU if needed.
+    Let cache block decide its own next state
+    """
+    def receive_block_from_bus(self, source: BlockSource, op: MemOperation, tag, cache_index, offset):
+        chosen_blk = None
+        # Find invalid cache block to insert itself there
+        for block in self.blocks[cache_index]:
+            if block.is_invalid():
+                chosen_blk = block
+                break
+        
+        # If no invalid blocks found, find lru block
+        if chosen_blk == None:
+            min_last_used = 2 ** 31 + (2 ** 31 - 1)
+            for block in self.blocks[cache_index]:
+                if block.last_used < min_last_used:
+                    chosen_blk = block
+                    min_last_used = block.last_used
+
+            # Invalidate chosen block
+            chosen_blk.state = BlockState.INVALID
+        
+        # Load block into cache
+        chosen_blk.tag = tag
+
+        # Set new state
+        chosen_blk.state = chosen_blk.get_next_state(op=op, source=source)
+        self.num_operation = self.num_operation + 1
+
+    def log(self, message: str):
+        print(f'CACHE {self.id}: {message}')
