@@ -1,7 +1,7 @@
 from bus import Bus
 from cache import Cache
 from tracker import CoreTracker
-from enums import Instruction, BlockSource
+from enums import Instruction, BlockSource, BlockState
 import math
 
 class Core:
@@ -44,8 +44,8 @@ class Core:
     def handle_load(self, address) -> None:
         tag, cache_index, offset = self.process_address(address=address)
         source = BlockSource.LOCAL_CACHE
-        hit = self.cache.processor_load(tag=tag, cache_index=cache_index, offset=offset)
-        if hit:
+        state = self.cache.processor_load(tag=tag, cache_index=cache_index, offset=offset)
+        if state != BlockState.INVALID:
             self.log("Processor load hit!")
         else:
             self.log("Processor load missed!")

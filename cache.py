@@ -98,19 +98,21 @@ class Cache:
         If miss: Report miss to processor
         num_operation++
     """
-    def processor_load(self, tag, cache_index, offset) -> bool:
+    def processor_load(self, tag, cache_index, offset) -> BlockState:
         self.log(f'Handling processor load at tag {tag}, index {cache_index} and offset {offset}')
         hit_block = self.check_exist(tag, cache_index)
         if hit_block != -1: # Hit!
             self.log(f'PROCESSOR LOAD HIT!')
             self.blocks[cache_index][hit_block].last_used = self.num_operation
-        
+            self.num_operation = self.num_operation + 1
+            return self.blocks[cache_index][hit_block].state
+
         self.num_operation = self.num_operation + 1
-        return hit_block > -1
+        return BlockState.INVALID
 
     """
     processor_store: store instruction issued by processor
-        If hit: report hit to processor. Change state accordingly. Use state machine to change state accordingly.
+        If hit: report hit to processor. Use state machine to change state accordingly.
         If miss: Handle LRU accordingly. Report miss to processor. Use state machine to change state accordingly.
         Set block's last used to num_operation. num_operation++
     """
