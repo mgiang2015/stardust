@@ -72,6 +72,8 @@ class Core:
             source = self.bus.load_exclusive_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
             self.cache.processor_store(tag=tag, cache_index=cache_index, offset=offset)
 
+        self.tracker.track_store(source=source, words=int(self.cache.config.block_size / self.cache.config.word_size))
+
     """
     handle_others(self, cycles): Basically increases overall execution cycle and compute cycle
     """
