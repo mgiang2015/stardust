@@ -52,3 +52,9 @@ class BusTracker:
         self.data_traffic = 0           # Amount of data traffic in bytes
         self.num_invalidation = 0       # Number of invalidations on the bus
         self.num_update = 0             # Number of updates on the bus
+
+    def track_traffic(self, word_size: int, words: int):
+        self.data_traffic += word_size * words
+
+    def track_invalidation(self, blocks: int):
+        self.num_invalidation += blocks

@@ -29,6 +29,7 @@ class Bus:
         for c in self.caches:
             # If bus finds a valid copy in one of the caches
             if c.id != id and c.bus_load_exclusive(tag, cache_index, offset): # invalidate block immediately with bus_load_exclusive
+                self.tracker.track_invalidation(blocks=1)
                 if not found_in_remote_cache:
                     # deliver block from REMOTE_CACHE to current cache
                     self.deliver_block(source=BlockSource.REMOTE_CACHE, op=MemOperation.PR_STORE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
@@ -47,7 +48,14 @@ class Bus:
         for c in self.caches:
             if c.id == target_id:
                 c.receive_block_from_bus(source, op, tag, cache_index, offset)
+                self.tracker.track_traffic(word_size=4, words=8) # add cache config into bus!
                 return
 
     def log(self, message: str):
         print(f'--- BUS: {message}')
+
+    def print_stats(self):
+        print(f'##### STATS FOR SHARED BUS #####')
+        print(f'Data traffic: {self.tracker.data_traffic} bytes')
+        print(f'Number of invalidations: {self.tracker.num_invalidation}')
+        print(f'Number of updates: {self.tracker.num_update}')

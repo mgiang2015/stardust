@@ -36,5 +36,9 @@ class System:
         for thread in self.threads:
             thread.join()
 
+        print("\n\nSTITISTACS\n\n")
+
         for core in self.cores:
             core.print_stats()
+
+        self.bus.print_stats()
