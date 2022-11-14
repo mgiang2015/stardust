@@ -17,7 +17,7 @@ class CoreTracker:
 
     def track_stall(self, cycles: int):
         self.overall_cycles += cycles
-        self.compute_cycles += cycles
+        self.idle_cycles += cycles
 
     # Implement private / shared access as well
     # words = number of words transferred between 2 caches. Only used for REMOTE_CACHE

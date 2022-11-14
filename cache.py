@@ -54,6 +54,8 @@ class CacheBlock:
                 return BlockState.SHARED
             else:
                 return self.state
+        elif op == MemOperation.BUS_LOAD_EXCLUSIVE:
+            return BlockState.INVALID
         else: # More to come
             return self.state
 
@@ -137,7 +139,16 @@ class Cache:
         pass
 
     def bus_load_exclusive(self, tag, cache_index, offset):
-        pass
+        self.log(f'Handling bus load exclusive at tag {tag}, index {cache_index} and offset {offset}')
+        block_index = self.check_exist(tag, cache_index)
+        if block_index == -1:
+            return False
+        
+        block = self.blocks[cache_index][block_index]
+        block.state = block.get_next_state(op=MemOperation.BUS_LOAD_EXCLUSIVE, source=BlockSource.LOCAL_CACHE)
+
+        self.num_operation += 1
+        return True
 
     def bus_update(self, tag, cache_index, offset):
         pass
