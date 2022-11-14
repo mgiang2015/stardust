@@ -56,12 +56,21 @@ class Core:
     
     """
     handle_store(self, address): Processor issues a PrWr on its own L1 cache.
-    If hit: Issue bus command to invalidate everything else (flush?). DRAGON: update?
+    If hit: Issue bus command to invalidate or update everything else DEPENDING ON PROTOCOL
     If miss: issue BusRdX command to get exclusive access to 1 block
     """
     def handle_store(self, address) -> None:
-        # self.log(f'Handling store at address {address}')
-        pass
+        tag, cache_index, offset = self.process_address(address=address)
+        source = BlockSource.LOCAL_CACHE
+        state = self.cache.processor_store(tag=tag, cache_index=cache_index, offset=offset)
+        # hit but exclusive / modified: ignore
+        if state == BlockState.SHARED: # hit and shared
+            self.log("Processor store hit!")
+            self.bus.flush_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
+        elif state == BlockState.INVALID: # miss
+            self.log("Processor store miss!")
+            source = self.bus.load_exclusive_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
+            self.cache.processor_store(tag=tag, cache_index=cache_index, offset=offset)
 
     """
     handle_others(self, cycles): Basically increases overall execution cycle and compute cycle

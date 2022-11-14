@@ -56,6 +56,8 @@ class CacheBlock:
                 return self.state
         elif op == MemOperation.BUS_LOAD_EXCLUSIVE:
             return BlockState.INVALID
+        elif op == MemOperation.PR_STORE:
+            return BlockState.MODIFIED
         else: # More to come
             return self.state
 
@@ -85,7 +87,7 @@ class Cache:
     A hit happens when blocks[cache_index] returns a set of blocks, in which one has tag === given tag AND that block is not invalid
     Returns index of block in the given set
     """
-    def check_exist(self, tag, cache_index) -> int:
+    def find_block(self, tag, cache_index) -> int:
         for block_id, block in enumerate(self.blocks[cache_index]):
             if block.tag == tag and not block.is_invalid():
                 return block_id
@@ -100,7 +102,7 @@ class Cache:
     """
     def processor_load(self, tag, cache_index, offset) -> BlockState:
         self.log(f'Handling processor load at tag {tag}, index {cache_index} and offset {offset}')
-        hit_block = self.check_exist(tag, cache_index)
+        hit_block = self.find_block(tag, cache_index)
         if hit_block != -1: # Hit!
             self.log(f'PROCESSOR LOAD HIT!')
             self.blocks[cache_index][hit_block].last_used = self.num_operation
@@ -113,11 +115,28 @@ class Cache:
     """
     processor_store: store instruction issued by processor
         If hit: report hit to processor. Use state machine to change state accordingly.
-        If miss: Handle LRU accordingly. Report miss to processor. Use state machine to change state accordingly.
+        If miss: Handle LRU accordingly. Report miss to processor.
         Set block's last used to num_operation. num_operation++
     """
     def processor_store(self, tag, cache_index, offset):
-        pass
+        self.log(f'Handling processor store at tag {tag}, index {cache_index} and offset {offset}')
+        hit_block = self.find_block(tag, cache_index)
+        if hit_block != -1: # Hit!
+            self.log(f'PROCESSOR STORE HIT!')
+            target_block = self.blocks[cache_index][hit_block]
+            target_block.last_used = self.num_operation
+            self.num_operation = self.num_operation + 1
+
+            # Store old state to return (shared, modified, exclusive)
+            old_state = target_block.state
+            
+            # hit store logic
+            target_block.state = target_block.get_next_state(op=MemOperation.PR_STORE, source=BlockSource.LOCAL_CACHE)
+
+            return old_state
+
+        self.num_operation = self.num_operation + 1
+        return BlockState.INVALID
     
     """
     bus_load: Another remote cache is asking to read a block that you might have
@@ -126,28 +145,25 @@ class Cache:
     """
     def bus_load(self, tag, cache_index, offset):
         self.log(f'Handling bus load at tag {tag}, index {cache_index} and offset {offset}')
-        block_index = self.check_exist(tag, cache_index)
+        block_index = self.find_block(tag, cache_index)
         if block_index == -1:
             return False
         
         block = self.blocks[cache_index][block_index]
-        block.state = block.get_next_state(op=MemOperation.BUS_LOAD, source=BlockSource.LOCAL_CACHE)
+        block.state = block.get_next_state(op=MemOperation.BUS_LOAD, source=BlockSource.REMOTE_CACHE)
         block.last_used = self.num_operation
 
         self.num_operation += 1
         return True
 
-    def bus_store(self, tag, cache_index, offset):
-        pass
-
     def bus_load_exclusive(self, tag, cache_index, offset):
         self.log(f'Handling bus load exclusive at tag {tag}, index {cache_index} and offset {offset}')
-        block_index = self.check_exist(tag, cache_index)
+        block_index = self.find_block(tag, cache_index)
         if block_index == -1:
             return False
         
         block = self.blocks[cache_index][block_index]
-        block.state = block.get_next_state(op=MemOperation.BUS_LOAD_EXCLUSIVE, source=BlockSource.LOCAL_CACHE)
+        block.state = block.get_next_state(op=MemOperation.BUS_LOAD_EXCLUSIVE, source=BlockSource.REMOTE_CACHE)
 
         self.num_operation += 1
         return True
@@ -155,39 +171,36 @@ class Cache:
     def bus_update(self, tag, cache_index, offset):
         pass
 
-    def flush(self, tag, cache_index, offset):
-        pass
-
     """
     receive_block_from_bus: Adds new block to cache. Handle LRU if needed.
     Let cache block decide its own next state
     """
     def receive_block_from_bus(self, source: BlockSource, op: MemOperation, tag, cache_index, offset):
-        chosen_blk = None
+        target_blk = None
         # Find invalid cache block to insert itself there
         for block in self.blocks[cache_index]:
             if block.is_invalid():
-                chosen_blk = block
+                target_blk = block
                 break
         
         # If no invalid blocks found, find lru block
-        if chosen_blk == None:
+        if target_blk == None:
             min_last_used = 2 ** 31 + (2 ** 31 - 1)
             for block in self.blocks[cache_index]:
                 if block.last_used < min_last_used:
-                    chosen_blk = block
+                    target_blk = block
                     min_last_used = block.last_used
 
             # Invalidate chosen block
-            self.log(f'Evicting block with tag {chosen_blk.tag}')
-            chosen_blk.state = BlockState.INVALID
+            self.log(f'Evicting block with tag {target_blk.tag}')
+            target_blk.state = BlockState.INVALID
         
         # Load block into cache
-        chosen_blk.tag = tag
-        chosen_blk.last_used = self.num_operation
+        target_blk.tag = tag
+        target_blk.last_used = self.num_operation
 
         # Set new state
-        chosen_blk.state = chosen_blk.get_next_state(op=op, source=source)
+        target_blk.state = target_blk.get_next_state(op=op, source=source)
         self.num_operation = self.num_operation + 1
 
     def log(self, message: str):

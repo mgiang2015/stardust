@@ -22,13 +22,42 @@ class Bus:
         
         self.deliver_block(source=BlockSource.MEMORY, op=MemOperation.PR_LOAD, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
         return BlockSource.MEMORY
-
+    
+    def load_exclusive_request(self, id, tag, cache_index, offset):
+        self.log(f'Received load_exclusive_request from core {id} with tag {tag}, index {cache_index} and offset {offset}')
+        found_in_remote_cache = False
+        for c in self.caches:
+            # If bus finds a valid copy in one of the caches
+            if c.id != id and c.bus_load_exclusive(tag, cache_index, offset): # invalidate block immediately with bus_load_exclusive
+                if not found_in_remote_cache:
+                    # deliver block from REMOTE_CACHE to current cache
+                    self.deliver_block(source=BlockSource.REMOTE_CACHE, op=MemOperation.PR_STORE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+                    found_in_remote_cache = True
+        
+        # Only going to be used for MESI and MOESI
+        if found_in_remote_cache:
+            return BlockSource.REMOTE_CACHE
+        else:
+            self.deliver_block(source=BlockSource.MEMORY, op=MemOperation.PR_STORE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+            return BlockSource.MEMORY
+    
+    
     def deliver_block(self, source: BlockSource, op: MemOperation, target_id: int, tag: int, cache_index: int, offset: int):
         self.log(f'Delivering block from {source} to {target_id}')
         for c in self.caches:
             if c.id == target_id:
                 c.receive_block_from_bus(source, op, tag, cache_index, offset)
                 return
+
+   
+
+    """
+    flush_all: flush all copies of specified cache block in remote caches.
+    Used only in INVALIDATION BASED protocol (MESI and MOESI)
+    Returns nothing for now lul
+    """
+    def flush_request(self, id, tag, cache_index, offset) -> None:
+        self.log(f'Received flush_request from core {id} with tag {tag}, index {cache_index} and offset {offset}')
 
     def log(self, message: str):
         print(f'--- BUS: {message}')
