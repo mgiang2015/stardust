@@ -101,10 +101,9 @@ class Cache:
         num_operation++
     """
     def processor_load(self, tag, cache_index, offset) -> BlockState:
-        self.log(f'Handling processor load at tag {tag}, index {cache_index} and offset {offset}')
+        # self.log(f'Handling processor load at tag {tag}, index {cache_index} and offset {offset}')
         hit_block = self.find_block(tag, cache_index)
         if hit_block != -1: # Hit!
-            self.log(f'PROCESSOR LOAD HIT!')
             self.blocks[cache_index][hit_block].last_used = self.num_operation
             self.num_operation = self.num_operation + 1
             return self.blocks[cache_index][hit_block].state
@@ -119,10 +118,9 @@ class Cache:
         Set block's last used to num_operation. num_operation++
     """
     def processor_store(self, tag, cache_index, offset):
-        self.log(f'Handling processor store at tag {tag}, index {cache_index} and offset {offset}')
+        # self.log(f'Handling processor store at tag {tag}, index {cache_index} and offset {offset}')
         hit_block = self.find_block(tag, cache_index)
         if hit_block != -1: # Hit!
-            self.log(f'PROCESSOR STORE HIT!')
             target_block = self.blocks[cache_index][hit_block]
             target_block.last_used = self.num_operation
             self.num_operation = self.num_operation + 1
@@ -144,7 +142,7 @@ class Cache:
         If you don't: return False. No state change
     """
     def bus_load(self, tag, cache_index, offset):
-        self.log(f'Handling bus load at tag {tag}, index {cache_index} and offset {offset}')
+        # self.log(f'Handling bus load at tag {tag}, index {cache_index} and offset {offset}')
         block_index = self.find_block(tag, cache_index)
         if block_index == -1:
             return False
@@ -157,7 +155,7 @@ class Cache:
         return True
 
     def bus_load_exclusive(self, tag, cache_index, offset):
-        self.log(f'Handling bus load exclusive at tag {tag}, index {cache_index} and offset {offset}')
+        # self.log(f'Handling bus load exclusive at tag {tag}, index {cache_index} and offset {offset}')
         block_index = self.find_block(tag, cache_index)
         if block_index == -1:
             return False

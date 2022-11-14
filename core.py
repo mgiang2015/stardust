@@ -46,9 +46,9 @@ class Core:
         source = BlockSource.LOCAL_CACHE
         state = self.cache.processor_load(tag=tag, cache_index=cache_index, offset=offset)
         if state != BlockState.INVALID:
-            self.log("Processor load hit!")
+            self.log(f"Processor load hit! Tag {tag} index {cache_index}")
         else:
-            self.log("Processor load missed!")
+            self.log(f"Processor load missed! Tag {tag} index {cache_index}")
             source = self.bus.load_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
 
         # Use source to keep track of cycles. should always be
@@ -65,19 +65,17 @@ class Core:
         state = self.cache.processor_store(tag=tag, cache_index=cache_index, offset=offset)
         # hit but exclusive / modified: ignore
         if state == BlockState.SHARED: # hit and shared
-            self.log("Processor store hit!")
+            self.log(f"Processor store hit! Tag {tag} index {cache_index}")
             self.bus.flush_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
         elif state == BlockState.INVALID: # miss
-            self.log("Processor store miss!")
+            self.log(f"Processor store miss! Tag {tag} index {cache_index}")
             source = self.bus.load_exclusive_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
             self.cache.processor_store(tag=tag, cache_index=cache_index, offset=offset)
 
     """
     handle_others(self, cycles): Basically increases overall execution cycle and compute cycle
     """
-    def handle_others(self, cycles) -> None:
-        # self.log(f'Handling other operation. Takes {cycles} cycles')
-        
+    def handle_others(self, cycles) -> None:        
         # parse cycles from hex to decimal
         self.tracker.track_compute(cycles=int(cycles, 16))
 
