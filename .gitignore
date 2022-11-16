@@ -1,0 +1,10 @@
+# pycache
+__pycache__/
+
+# venv folder
+venv/
+
+# trace folder
+traces/blackscholes_*
+traces/bodytrack_*
+traces/fluidanimate_*
