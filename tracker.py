@@ -58,3 +58,6 @@ class BusTracker:
 
     def track_invalidation(self, blocks: int):
         self.num_invalidation += blocks
+
+    def track_update(self, updates: int):
+        self.num_update += updates

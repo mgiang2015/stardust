@@ -9,12 +9,12 @@ from bus import Bus
 class System:
     def __init__(self, protocol: Protocol, processor_num: int, cache_config: CacheConfig) -> None:
         self.protocol = protocol
-        self.bus = Bus(BusTracker())
+        self.bus = Bus(BusTracker(), cache_config=cache_config)
         self.cores = []
         for i in range(0, processor_num):
             new_cache = Cache(id=i, cache_config=cache_config)
             # Both bus and core has access to given cache
-            self.cores.append(Core(id=i, bus=self.bus, cache=new_cache, tracker=CoreTracker()))
+            self.cores.append(Core(id=i, bus=self.bus, cache=new_cache, tracker=CoreTracker(), protocol=protocol))
             self.bus.add_cache(new_cache)
         self.threads = []
 
