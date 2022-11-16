@@ -12,9 +12,10 @@ class System:
         self.bus = Bus(BusTracker(), cache_config=cache_config)
         self.cores = []
         for i in range(0, processor_num):
-            new_cache = Cache(id=i, cache_config=cache_config)
+            shared_tracker = CoreTracker()
+            new_cache = Cache(id=i, cache_config=cache_config, tracker=shared_tracker)
             # Both bus and core has access to given cache
-            self.cores.append(Core(id=i, bus=self.bus, cache=new_cache, tracker=CoreTracker(), protocol=protocol))
+            self.cores.append(Core(id=i, bus=self.bus, cache=new_cache, tracker=shared_tracker, protocol=protocol))
             self.bus.add_cache(new_cache)
         self.threads = []
 

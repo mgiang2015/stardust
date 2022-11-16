@@ -30,12 +30,15 @@ class Bus:
             return BlockSource.MEMORY
 
     def bus_load_exclusive_request(self, id, tag, cache_index, offset):
-        # self.log(f'Received load_exclusive_request from core {id} with tag {tag}, index {cache_index} and offset {offset}')
+        self.log(f'Received load_exclusive_request from core {id} with tag {tag}, index {cache_index} and offset {offset}')
         found_in_remote_cache = False
         for c in self.caches:
             # If bus finds a valid copy in one of the caches
+            self.log(f'Looking at cache {c.id}')
             if c.id != id and c.bus_invalidate_load_exclusive(tag, cache_index, offset): # invalidate block immediately with bus_load_exclusive
                 self.tracker.track_invalidation(blocks=1)
+                self.log(f'Invalidating cache {c.id}')
+                
                 if not found_in_remote_cache:
                     # deliver block from REMOTE_CACHE to current cache
                     self.deliver_block(source=BlockSource.REMOTE_CACHE, op=MemOperation.PR_INVALIDATE_STORE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
@@ -90,12 +93,13 @@ class Bus:
         for c in self.caches:
             if c.id != id and c.find_block(tag=tag, cache_index=cache_index) > -1:
                 self.tracker.track_update(updates=1)
-                self.deliver_word(source=BlockSource.REMOTE_CACHE, op=MemOperation.BUS_UPDATE_UPDATE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+                self.deliver_word(source=BlockSource.REMOTE_CACHE, op=MemOperation.BUS_UPDATE_UPDATE, target_id=c.id, tag=tag, cache_index=cache_index, offset=offset)
 
     ########## Utility
     def flush_request(self, id, tag, cache_index, offset):
         for c in self.caches:
-            c.flush(tag, cache_index, offset)
+            if c.id != id:
+                c.flush(tag, cache_index, offset)
    
     def deliver_block(self, source: BlockSource, op: MemOperation, target_id: int, tag: int, cache_index: int, offset: int):
         # self.log(f'Delivering block from {source} to {target_id}')
