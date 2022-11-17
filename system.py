@@ -43,8 +43,7 @@ class System:
         print("\n\nSTITISTACS\n\n")
         
         # Direct this to a file instead of stdout
-        name = f'{self.protocol}_{self.filename}.txt'
-        with open(name, 'w+') as sys.stdout:
+        with open(self.filename, 'w+') as sys.stdout:
             for core in self.cores:
                 core.print_stats()
 
