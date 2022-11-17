@@ -33,6 +33,8 @@ class MemOperation(Enum):
     PR_UPDATE_STORE = 7
     BUS_UPDATE_LOAD = 3
     BUS_UPDATE_UPDATE = 4
+    # MOESI: MESI optimization
+    BUS_MOESI_LOAD = 9
 
 class BlockSource(Enum):
     LOCAL_CACHE = 0
