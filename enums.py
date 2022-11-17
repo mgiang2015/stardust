@@ -19,6 +19,7 @@ class BlockState(Enum):
     SHARED_CLEAN = 4
     SHARED_MODIFIED = 5
     DIRTY = 6
+    OWNED = 7
 
 class MemOperation(Enum):
     # Invalidation-based operations

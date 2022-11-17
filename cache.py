@@ -265,13 +265,10 @@ class Cache:
         block = self.blocks[cache_index][block_index]
         if (block.state == BlockState.MODIFIED or block.state == BlockState.SHARED) and not wrote_back: # block is written back to memory as it is invalidated. Has to.
             self.tracker.track_evict()
-            block.state = BlockState.INVALID
-            block.last_used = self.num_operation
-            return True
         
         block.state = BlockState.INVALID
         block.last_used = self.num_operation
-        return False
+        return not wrote_back
 
     """
     receive_block_from_bus: Adds new block to cache. Handle LRU if needed.

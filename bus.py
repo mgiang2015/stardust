@@ -41,17 +41,14 @@ class Bus:
         for c in self.caches:
             # If bus finds a valid copy in one of the caches
             # self.log(f'Looking at cache {c.id}')
-            if c.id != id and c.bus_invalidate_load_exclusive(tag, cache_index, offset): # invalidate block immediately with bus_load_exclusive
-                self.tracker.track_invalidation(blocks=1)
-                # self.log(f'Invalidating cache {c.id}')
-                
-                if not found_in_remote_cache:
-                    # deliver block from REMOTE_CACHE to current cache
-                    self.deliver_block(source=BlockSource.REMOTE_CACHE, op=MemOperation.PR_INVALIDATE_STORE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
-                    found_in_remote_cache = True
+            if c.id != id and c.find_block(tag=tag, cache_index=cache_index) > -1:
+                self.deliver_block(source=BlockSource.REMOTE_CACHE, op=MemOperation.PR_INVALIDATE_STORE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+                found_in_remote_cache = True
+                break
         
         # Only going to be used for MESI and MOESI
         if found_in_remote_cache:
+            self.flush_request(id, tag, cache_index, offset)
             self.lock.release()
             return BlockSource.REMOTE_CACHE
         else:
