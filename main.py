@@ -35,7 +35,7 @@ if __name__ == "__main__":
     print(f'Protocol: {protocol}\nTrace file: {trace}\nCache size: {cache_size} bytes\nAssociativiy: {associativity}-way\nBlock size: {block_size} bytes')
 
     cacheConfig = CacheConfig(size=cache_size, associativity=associativity, block_size=block_size, word_size=word_size, protocol=protocol)
-    system = System(protocol=protocol, processor_num=processor_num, cache_config=cacheConfig)
+    system = System(protocol=protocol, processor_num=processor_num, cache_config=cacheConfig, filename=trace)
 
     # Read trace file and feed to system
     for i in range(0, processor_num):
