@@ -4,12 +4,13 @@ from cache import Cache, CacheConfig
 from core import Core
 from tracker import CoreTracker, BusTracker
 from bus import Bus
+from threading import Lock
 
 # 1 protocol, 1 shared bus, 4 processors with 1 L1 cache each
 class System:
     def __init__(self, protocol: Protocol, processor_num: int, cache_config: CacheConfig) -> None:
         self.protocol = protocol
-        self.bus = Bus(BusTracker(), cache_config=cache_config)
+        self.bus = Bus(BusTracker(), cache_config=cache_config, lock=Lock())
         self.cores = []
         for i in range(0, processor_num):
             shared_tracker = CoreTracker()

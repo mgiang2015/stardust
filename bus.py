@@ -1,13 +1,15 @@
 from tracker import BusTracker
 from cache import Cache, CacheConfig
 from enums import BlockSource, MemOperation
+from threading import Lock
 
 # shared bus class
 class Bus:
-    def __init__(self, tracker: BusTracker, cache_config: CacheConfig) -> None:
+    def __init__(self, tracker: BusTracker, cache_config: CacheConfig, lock: Lock) -> None:
         self.tracker = tracker
         self.cache_config = cache_config
         self.caches = []
+        self.lock = lock
 
     def add_cache(self, cache: Cache):
         self.caches.append(cache)
@@ -15,6 +17,7 @@ class Bus:
     ########## Invalidation-based bus requests
     def bus_load_request(self, id, tag, cache_index, offset) -> BlockSource:
         # self.log(f'Received load_request from core {id} with tag {tag}, index {cache_index} and offset {offset}')
+        self.lock.acquire()
         found_in_remote_cache = False
         for c in self.caches:
             # If bus finds a valid copy in one of the caches
@@ -24,20 +27,23 @@ class Bus:
                     self.deliver_block(source=BlockSource.REMOTE_CACHE, op=MemOperation.PR_INVALIDATE_LOAD, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
                     found_in_remote_cache = True
         if found_in_remote_cache:
+            self.lock.release()
             return BlockSource.REMOTE_CACHE
         else:
             self.deliver_block(source=BlockSource.MEMORY, op=MemOperation.PR_INVALIDATE_LOAD, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+            self.lock.release()            
             return BlockSource.MEMORY
 
     def bus_load_exclusive_request(self, id, tag, cache_index, offset):
-        self.log(f'Received load_exclusive_request from core {id} with tag {tag}, index {cache_index} and offset {offset}')
+        # self.log(f'Received load_exclusive_request from core {id} with tag {tag}, index {cache_index} and offset {offset}')
+        self.lock.acquire()
         found_in_remote_cache = False
         for c in self.caches:
             # If bus finds a valid copy in one of the caches
-            self.log(f'Looking at cache {c.id}')
+            # self.log(f'Looking at cache {c.id}')
             if c.id != id and c.bus_invalidate_load_exclusive(tag, cache_index, offset): # invalidate block immediately with bus_load_exclusive
                 self.tracker.track_invalidation(blocks=1)
-                self.log(f'Invalidating cache {c.id}')
+                # self.log(f'Invalidating cache {c.id}')
                 
                 if not found_in_remote_cache:
                     # deliver block from REMOTE_CACHE to current cache
@@ -46,13 +52,16 @@ class Bus:
         
         # Only going to be used for MESI and MOESI
         if found_in_remote_cache:
+            self.lock.release()
             return BlockSource.REMOTE_CACHE
         else:
             self.deliver_block(source=BlockSource.MEMORY, op=MemOperation.PR_INVALIDATE_STORE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+            self.lock.release()
             return BlockSource.MEMORY
 
     ########## Update-based bus requests
     def pr_load_miss_request(self, id, tag, cache_index, offset):
+        self.lock.acquire()
         found_in_remote_cache = False
         for c in self.caches:
             # If bus finds a valid copy in one of the caches
@@ -62,12 +71,15 @@ class Bus:
                     self.deliver_block(source=BlockSource.REMOTE_CACHE, op=MemOperation.PR_LOAD_MISS, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
                     found_in_remote_cache = True
         if found_in_remote_cache:
+            self.lock.release()
             return BlockSource.REMOTE_CACHE
         else:
             self.deliver_block(source=BlockSource.MEMORY, op=MemOperation.PR_LOAD_MISS, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+            self.lock.release()
             return BlockSource.MEMORY
 
     def pr_store_miss_request(self, id, tag, cache_index, offset):
+        self.lock.acquire()
         found_in_remote_cache = False
         for c in self.caches:
             # If bus finds a valid copy in one of the caches
@@ -78,9 +90,11 @@ class Bus:
                     found_in_remote_cache = True
 
         if found_in_remote_cache:
+            self.lock.release()
             return BlockSource.REMOTE_CACHE # State of cache will be shared_clean
         else:
             self.deliver_block(source=BlockSource.MEMORY, op=MemOperation.PR_STORE_MISS, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+            self.lock.release()
             return BlockSource.MEMORY
 
     """
@@ -90,17 +104,23 @@ class Bus:
     Bus delivers word to all other caches
     """
     def bus_update_request(self, id, tag, cache_index, offset):
+        self.lock.acquire()
         for c in self.caches:
             if c.id != id and c.find_block(tag=tag, cache_index=cache_index) > -1:
                 self.tracker.track_update(updates=1)
                 self.deliver_word(source=BlockSource.REMOTE_CACHE, op=MemOperation.BUS_UPDATE_UPDATE, target_id=c.id, tag=tag, cache_index=cache_index, offset=offset)
 
-    ########## Utility
+        self.lock.release()
+
     def flush_request(self, id, tag, cache_index, offset):
+        self.lock.acquire()
         for c in self.caches:
             if c.id != id:
                 c.flush(tag, cache_index, offset)
-   
+
+        self.lock.release()
+    
+    ########## Utility
     def deliver_block(self, source: BlockSource, op: MemOperation, target_id: int, tag: int, cache_index: int, offset: int):
         # self.log(f'Delivering block from {source} to {target_id}')
         for c in self.caches:
@@ -110,7 +130,7 @@ class Bus:
                 return
 
     def deliver_word(self, source: BlockSource, op: MemOperation, target_id: int, tag: int, cache_index: int, offset: int):
-        self.log(f'Delivering word from {source} to {target_id}')
+        # self.log(f'Delivering word from {source} to {target_id}')
         for c in self.caches:
             if c.id == target_id:
                 c.receive_word_from_bus(source, op, tag, cache_index, offset)

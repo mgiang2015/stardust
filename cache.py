@@ -243,13 +243,12 @@ class Cache:
         # self.log(f'Handling bus load exclusive at tag {tag}, index {cache_index} and offset {offset}')
         block_index = self.find_block(tag, cache_index)
         if block_index == -1:
-            self.log(f'Cannot find block tag {tag} index {cache_index}')
             return False
         
         block = self.blocks[cache_index][block_index]
-        self.log(f'Found block tag {tag} index {cache_index} with state {block.state}')
 
-        self.tracker.incr_data_access(block.state)
+        # self.tracker.incr_data_access(block.state) # Invalidation not counted as access
+        block.last_used = self.num_operation
         block.state = block.get_next_state(op=MemOperation.BUS_LOAD_EXCLUSIVE, source=BlockSource.REMOTE_CACHE)
 
         self.num_operation += 1
