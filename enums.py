@@ -8,7 +8,8 @@ class Instruction(Enum):
 class Protocol(Enum):
     MESI = 0
     DRAGON = 1
-    NONE = 2
+    MOESI = 2
+    NONE = 3
 
 class BlockState(Enum):
     MODIFIED = 0
@@ -18,6 +19,7 @@ class BlockState(Enum):
     SHARED_CLEAN = 4
     SHARED_MODIFIED = 5
     DIRTY = 6
+    OWNED = 7
 
 class MemOperation(Enum):
     # Invalidation-based operations
@@ -31,6 +33,8 @@ class MemOperation(Enum):
     PR_UPDATE_STORE = 7
     BUS_UPDATE_LOAD = 3
     BUS_UPDATE_UPDATE = 4
+    # MOESI: MESI optimization
+    BUS_MOESI_LOAD = 9
 
 class BlockSource(Enum):
     LOCAL_CACHE = 0

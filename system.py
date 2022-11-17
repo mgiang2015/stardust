@@ -5,13 +5,15 @@ from core import Core
 from tracker import CoreTracker, BusTracker
 from bus import Bus
 from threading import Lock
+import sys
 
 # 1 protocol, 1 shared bus, 4 processors with 1 L1 cache each
 class System:
-    def __init__(self, protocol: Protocol, processor_num: int, cache_config: CacheConfig) -> None:
+    def __init__(self, protocol: Protocol, processor_num: int, cache_config: CacheConfig, filename: str) -> None:
         self.protocol = protocol
         self.bus = Bus(BusTracker(), cache_config=cache_config, lock=Lock())
         self.cores = []
+        self.filename = filename
         for i in range(0, processor_num):
             shared_tracker = CoreTracker()
             new_cache = Cache(id=i, cache_config=cache_config, tracker=shared_tracker)
@@ -39,8 +41,11 @@ class System:
             thread.join()
 
         print("\n\nSTITISTACS\n\n")
+        
+        # Direct this to a file instead of stdout
+        name = f'{self.protocol}_{self.filename}.txt'
+        with open(name, 'w+') as sys.stdout:
+            for core in self.cores:
+                core.print_stats()
 
-        for core in self.cores:
-            core.print_stats()
-
-        self.bus.print_stats()
+            self.bus.print_stats()

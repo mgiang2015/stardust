@@ -23,6 +23,15 @@ class Core:
                     self.handle_others(value)
                 else:
                     self.log("Invalid operation!")
+            elif self.protocol == Protocol.MOESI:
+                if label == Instruction.LOAD.value:
+                    self.handle_moesi_load(value)
+                elif label == Instruction.STORE.value:
+                    self.handle_invalidation_store(value)
+                elif label == Instruction.OTHERS.value:
+                    self.handle_others(value)
+                else:
+                    self.log("Invalid operation!")
             elif self.protocol == Protocol.DRAGON:
                 if label == Instruction.LOAD.value:
                     self.handle_update_load(value)
@@ -83,6 +92,22 @@ class Core:
             self.cache.processor_invalidate_store(tag=tag, cache_index=cache_index, offset=offset)
         
         self.tracker.incr_store()
+
+    """
+    Handles moesi load
+    """
+
+    def handle_moesi_load(self, address) -> None:
+        tag, cache_index, offset = self.process_address(address=address)
+        source = BlockSource.LOCAL_CACHE
+        state = self.cache.processor_load(tag=tag, cache_index=cache_index, offset=offset)
+        if state != BlockState.INVALID:
+            self.log(f"Processor load hit! Tag {tag} index {cache_index}")
+        else:
+            self.log(f"Processor load missed! Tag {tag} index {cache_index}")
+            source = self.bus.bus_moesi_load_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
+        
+        self.tracker.incr_load()
 
     """
     def handle_update_load(self, address): Same as invalidate load, but calls a different bus request

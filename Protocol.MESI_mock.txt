@@ -1,0 +1,35 @@
+##### STATS FOR CORE 0 #####
+Overall Execution Cycles: 326
+Compute Cycles: 110
+Idle cycles: 200
+Number of memory (load/store) operations: 14
+Miss rate: 0.14
+Number of accesses to private data: 15
+Number of accesses to shared data: 0
+##### STATS FOR CORE 1 #####
+Overall Execution Cycles: 16
+Compute Cycles: 0
+Idle cycles: 16
+Number of memory (load/store) operations: 1
+Miss rate: 1.00
+Number of accesses to private data: 0
+Number of accesses to shared data: 0
+##### STATS FOR CORE 2 #####
+Overall Execution Cycles: 8485608
+Compute Cycles: 8485608
+Idle cycles: 0
+Number of memory (load/store) operations: 0
+No memory operations attempted
+Number of accesses to private data: 0
+Number of accesses to shared data: 0
+##### STATS FOR CORE 3 #####
+Overall Execution Cycles: 20
+Compute Cycles: 20
+Idle cycles: 0
+Number of memory (load/store) operations: 0
+No memory operations attempted
+Number of accesses to private data: 0
+Number of accesses to shared data: 0
+##### STATS FOR SHARED BUS #####
+Data traffic: 96 bytes
+Number of invalidations or updates: 0

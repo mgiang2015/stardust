@@ -41,22 +41,39 @@ class Bus:
         for c in self.caches:
             # If bus finds a valid copy in one of the caches
             # self.log(f'Looking at cache {c.id}')
-            if c.id != id and c.bus_invalidate_load_exclusive(tag, cache_index, offset): # invalidate block immediately with bus_load_exclusive
-                self.tracker.track_invalidation(blocks=1)
-                # self.log(f'Invalidating cache {c.id}')
-                
-                if not found_in_remote_cache:
-                    # deliver block from REMOTE_CACHE to current cache
-                    self.deliver_block(source=BlockSource.REMOTE_CACHE, op=MemOperation.PR_INVALIDATE_STORE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
-                    found_in_remote_cache = True
+            if c.id != id and c.find_block(tag=tag, cache_index=cache_index) > -1:
+                self.deliver_block(source=BlockSource.REMOTE_CACHE, op=MemOperation.PR_INVALIDATE_STORE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+                found_in_remote_cache = True
+                break
         
         # Only going to be used for MESI and MOESI
         if found_in_remote_cache:
+            self.flush_all(id, tag, cache_index, offset)
             self.lock.release()
             return BlockSource.REMOTE_CACHE
         else:
             self.deliver_block(source=BlockSource.MEMORY, op=MemOperation.PR_INVALIDATE_STORE, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
             self.lock.release()
+            return BlockSource.MEMORY
+
+
+    def bus_moesi_load_request(self, id, tag, cache_index, offset) -> BlockSource:
+        # self.log(f'Received load_request from core {id} with tag {tag}, index {cache_index} and offset {offset}')
+        self.lock.acquire()
+        found_in_remote_cache = False
+        for c in self.caches:
+            # If bus finds a valid copy in one of the caches
+            if c.id != id and c.bus_moesi_invalidate_load(tag, cache_index, offset):
+                # deliver block from REMOTE_CACHE to current cache
+                if not found_in_remote_cache:
+                    self.deliver_block(source=BlockSource.REMOTE_CACHE, op=MemOperation.PR_INVALIDATE_LOAD, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+                    found_in_remote_cache = True
+        if found_in_remote_cache:
+            self.lock.release()
+            return BlockSource.REMOTE_CACHE
+        else:
+            self.deliver_block(source=BlockSource.MEMORY, op=MemOperation.PR_INVALIDATE_LOAD, target_id=id, tag=tag, cache_index=cache_index, offset=offset)
+            self.lock.release()            
             return BlockSource.MEMORY
 
     ########## Update-based bus requests
@@ -114,13 +131,26 @@ class Bus:
 
     def flush_request(self, id, tag, cache_index, offset):
         self.lock.acquire()
+        wrote_back = False
         for c in self.caches:
-            if c.id != id:
-                c.flush(tag, cache_index, offset)
+            if c.id != id and c.find_block(tag, cache_index) > -1:
+                self.tracker.track_invalidation(1)                
+                wrote = c.flush(tag, cache_index, offset, wrote_back)
+                if wrote:
+                    wrote_back = True
 
         self.lock.release()
     
     ########## Utility
+    def flush_all(self, id, tag, cache_index, offset):
+        wrote_back = False
+        for c in self.caches:
+            if c.id != id and c.find_block(tag, cache_index) > -1:
+                self.tracker.track_invalidation(1)
+                wrote = c.flush(tag, cache_index, offset, wrote_back)
+                if wrote:
+                    wrote_back = True
+
     def deliver_block(self, source: BlockSource, op: MemOperation, target_id: int, tag: int, cache_index: int, offset: int):
         # self.log(f'Delivering block from {source} to {target_id}')
         for c in self.caches:

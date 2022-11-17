@@ -1,15 +1,16 @@
-from enums import BlockState, MemOperation, BlockSource
+from enums import BlockState, MemOperation, BlockSource, Protocol
 from tracker import CoreTracker
 
 """
 CacheConfig: structure for cache configuration
 """
 class CacheConfig:
-    def __init__(self, size: int, associativity: int, block_size: int, word_size: int) -> None:
+    def __init__(self, size: int, associativity: int, block_size: int, word_size: int, protocol: Protocol) -> None:
         self.size = size
         self.associativity = associativity
         self.block_size = block_size
         self.word_size = word_size
+        self.protocol = protocol
 
 """
 CacheBlock: Represents a cache block with size {block_size} and has {block_size / word_size} entries
@@ -49,15 +50,17 @@ class CacheBlock:
                 return BlockState.EXCLUSIVE
             elif self.state == BlockState.INVALID and source == BlockSource.REMOTE_CACHE:
                 return BlockState.SHARED
-            else:
-                return self.state
         elif op == MemOperation.PR_INVALIDATE_STORE:
             return BlockState.MODIFIED
         elif op == MemOperation.BUS_INVALIDATE_LOAD:
             if self.state == BlockState.EXCLUSIVE or self.state == BlockState.MODIFIED:
                 return BlockState.SHARED
-            else:
-                return self.state
+        ##################### MOESI protocol
+        elif op == MemOperation.BUS_MOESI_LOAD:
+            if self.state == BlockState.EXCLUSIVE:
+                return BlockState.SHARED
+            elif self.state == BlockState.MODIFIED:
+                return BlockState.OWNED
         elif op == MemOperation.BUS_LOAD_EXCLUSIVE:
             return BlockState.INVALID
         ##################### Update-based protocol
@@ -66,36 +69,26 @@ class CacheBlock:
                 return BlockState.EXCLUSIVE
             elif self.state == BlockState.INVALID and source == BlockSource.REMOTE_CACHE:
                 return BlockState.SHARED_CLEAN
-            else:
-                return self.state
         elif op == MemOperation.PR_STORE_MISS:
             if source == BlockSource.MEMORY:
                 return BlockState.MODIFIED
             elif source == BlockSource.REMOTE_CACHE:
                 return BlockState.SHARED_MODIFIED
-            else:
-                return self.state
         elif op == MemOperation.PR_UPDATE_STORE:
             if self.state == BlockState.EXCLUSIVE:
                 return BlockState.MODIFIED
             elif self.state == BlockState.SHARED_CLEAN:
                 return BlockState.SHARED_MODIFIED       # Achieve ownership
-            else:
-                return self.state
         elif op == MemOperation.BUS_UPDATE_LOAD:
             if self.state == BlockState.EXCLUSIVE:
                 return BlockState.SHARED_CLEAN
             elif self.state == BlockState.MODIFIED:
                 return BlockState.MODIFIED
-            else:
-                return self.state
         elif op == MemOperation.BUS_UPDATE_UPDATE:
             if self.state == BlockState.SHARED_MODIFIED:
                 return BlockState.SHARED_CLEAN          # Give up ownership
-            else:
-                return self.state
-        else: # More to come
-            return self.state
+        
+        return self.state
 
 """
 Cache: Represents an L1 Cache
@@ -254,16 +247,36 @@ class Cache:
         self.num_operation += 1
         return True
 
-    def bus_update(self, tag, cache_index, offset):
-        pass
-
-    def flush(self, tag, cache_index, offset):
+    def bus_moesi_invalidate_load(self, tag, cache_index, offset):
+        self.log(f'Handling bus moesi invalidate load at tag {tag}, index {cache_index} and offset {offset}')
         block_index = self.find_block(tag, cache_index)
         if block_index == -1:
-            return
+            return False
         
-        self.blocks[cache_index][block_index].state = BlockState.INVALID
-        self.blocks[cache_index][block_index].last_used = self.num_operation
+        block = self.blocks[cache_index][block_index]
+        self.tracker.incr_data_access(block.state)
+        block.state = block.get_next_state(op=MemOperation.BUS_MOESI_LOAD, source=BlockSource.REMOTE_CACHE)
+        block.last_used = self.num_operation
+
+        self.num_operation += 1
+        return True
+
+    def flush(self, tag, cache_index, offset, wrote_back):
+        print("----- Flushing")
+        block_index = self.find_block(tag, cache_index)
+        if block_index == -1:
+            return False
+        
+        block = self.blocks[cache_index][block_index]
+        if self.config.protocol == Protocol.MOESI and block.state == BlockState.OWNED:
+            self.tracker.track_evict()
+
+        if self.config.protocol == Protocol.MESI and (block.state == BlockState.MODIFIED or block.state == BlockState.SHARED) and not wrote_back: # block is written back to memory as it is invalidated. Has to.
+            self.tracker.track_evict()
+        
+        block.state = BlockState.INVALID
+        block.last_used = self.num_operation
+        return not wrote_back
 
     """
     receive_block_from_bus: Adds new block to cache. Handle LRU if needed.
@@ -287,6 +300,7 @@ class Cache:
 
             # Invalidate chosen block
             self.log(f'Evicting block with tag {target_blk.tag}')
+            self.tracker.track_evict()
             target_blk.state = BlockState.INVALID
         
         # Load block into cache
