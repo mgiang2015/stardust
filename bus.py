@@ -48,7 +48,7 @@ class Bus:
         
         # Only going to be used for MESI and MOESI
         if found_in_remote_cache:
-            self.flush_request(id, tag, cache_index, offset)
+            self.flush_all(id, tag, cache_index, offset)
             self.lock.release()
             return BlockSource.REMOTE_CACHE
         else:
@@ -119,6 +119,12 @@ class Bus:
         self.lock.release()
     
     ########## Utility
+    def flush_all(self, id, tag, cache_index, offset):
+        wrote_back = False
+        for c in self.caches:
+            if c.id != id and c.flush(tag, cache_index, offset, wrote_back):
+                wrote_back = True
+
     def deliver_block(self, source: BlockSource, op: MemOperation, target_id: int, tag: int, cache_index: int, offset: int):
         # self.log(f'Delivering block from {source} to {target_id}')
         for c in self.caches:
