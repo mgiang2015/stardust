@@ -114,9 +114,10 @@ class Bus:
 
     def flush_request(self, id, tag, cache_index, offset):
         self.lock.acquire()
+        wrote_back = False
         for c in self.caches:
-            if c.id != id:
-                c.flush(tag, cache_index, offset)
+            if c.id != id and c.flush(tag, cache_index, offset, wrote_back):
+                wrote_back = True
 
         self.lock.release()
     

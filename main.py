@@ -20,6 +20,8 @@ if __name__ == "__main__":
         protocol = Protocol.MESI
     elif protocol == "DRAGON":
         protocol = Protocol.DRAGON
+    elif protocol == "MOESI":
+        protocol = Protocol.MOESI
     else:
         protocol = Protocol.NONE
     

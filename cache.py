@@ -257,13 +257,21 @@ class Cache:
     def bus_update(self, tag, cache_index, offset):
         pass
 
-    def flush(self, tag, cache_index, offset):
+    def flush(self, tag, cache_index, offset, wrote_back):
         block_index = self.find_block(tag, cache_index)
         if block_index == -1:
-            return
+            return False
         
-        self.blocks[cache_index][block_index].state = BlockState.INVALID
-        self.blocks[cache_index][block_index].last_used = self.num_operation
+        block = self.blocks[cache_index][block_index]
+        if (block.state == BlockState.MODIFIED or block.state == BlockState.SHARED) and not wrote_back: # block is written back to memory as it is invalidated. Has to.
+            self.tracker.track_evict()
+            block.state = BlockState.INVALID
+            block.last_used = self.num_operation
+            return True
+        
+        block.state = BlockState.INVALID
+        block.last_used = self.num_operation
+        return False
 
     """
     receive_block_from_bus: Adds new block to cache. Handle LRU if needed.
@@ -287,6 +295,7 @@ class Cache:
 
             # Invalidate chosen block
             self.log(f'Evicting block with tag {target_blk.tag}')
+            self.tracker.track_evict()
             target_blk.state = BlockState.INVALID
         
         # Load block into cache

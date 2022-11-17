@@ -8,7 +8,8 @@ class Instruction(Enum):
 class Protocol(Enum):
     MESI = 0
     DRAGON = 1
-    NONE = 2
+    MOESI = 2
+    NONE = 3
 
 class BlockState(Enum):
     MODIFIED = 0
