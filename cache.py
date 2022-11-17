@@ -1,4 +1,5 @@
 from enums import BlockState, MemOperation, BlockSource
+from tracker import CoreTracker
 
 """
 CacheConfig: structure for cache configuration
@@ -102,9 +103,11 @@ Cache: Represents an L1 Cache
 - Cache should use LRU protocol
 """
 class Cache:
-    def __init__(self, id: int, cache_config: CacheConfig) -> None:
+    def __init__(self, id: int, cache_config: CacheConfig, tracker: CoreTracker) -> None:
         self.config = cache_config
         self.id = id
+        self.tracker = tracker
+
         # For LRU implementation. Each cache block receives a new last_used each load/store
         self.num_operation = 0
 
@@ -141,8 +144,12 @@ class Cache:
         if hit_block != -1: # Hit!
             self.blocks[cache_index][hit_block].last_used = self.num_operation
             self.num_operation = self.num_operation + 1
+            # Track hit and access
+            self.tracker.track_hit()
+            self.tracker.incr_data_access(state=self.blocks[cache_index][hit_block].state)
             return self.blocks[cache_index][hit_block].state
 
+        self.tracker.incr_miss()
         self.num_operation = self.num_operation + 1
         return BlockState.INVALID
 
@@ -165,8 +172,12 @@ class Cache:
             # hit store logic
             target_block.state = target_block.get_next_state(op=MemOperation.PR_INVALIDATE_STORE, source=BlockSource.LOCAL_CACHE)
 
+            # Track hit
+            self.tracker.track_hit()
+            self.tracker.incr_data_access(old_state)
             return old_state
 
+        self.tracker.incr_miss()
         self.num_operation = self.num_operation + 1
         return BlockState.INVALID
     
@@ -183,8 +194,12 @@ class Cache:
             # hit store logic
             target_block.state = target_block.get_next_state(op=MemOperation.PR_UPDATE_STORE, source=BlockSource.LOCAL_CACHE)
 
+            # Track hit
+            self.tracker.track_hit()
+            self.tracker.incr_data_access(old_state)
             return old_state
 
+        self.tracker.incr_miss()
         self.num_operation = self.num_operation + 1
         return BlockState.INVALID
 
@@ -197,8 +212,10 @@ class Cache:
             return False
         
         block = self.blocks[cache_index][block_index]
+        self.tracker.incr_data_access(block.state)
         block.state = block.get_next_state(op=MemOperation.BUS_UPDATE_LOAD, source=BlockSource.REMOTE_CACHE)
         block.last_used = self.num_operation
+        
 
         self.num_operation += 1
         return True
@@ -215,6 +232,7 @@ class Cache:
             return False
         
         block = self.blocks[cache_index][block_index]
+        self.tracker.incr_data_access(block.state)
         block.state = block.get_next_state(op=MemOperation.BUS_INVALIDATE_LOAD, source=BlockSource.REMOTE_CACHE)
         block.last_used = self.num_operation
 
@@ -228,6 +246,9 @@ class Cache:
             return False
         
         block = self.blocks[cache_index][block_index]
+
+        # self.tracker.incr_data_access(block.state) # Invalidation not counted as access
+        block.last_used = self.num_operation
         block.state = block.get_next_state(op=MemOperation.BUS_LOAD_EXCLUSIVE, source=BlockSource.REMOTE_CACHE)
 
         self.num_operation += 1
@@ -276,6 +297,12 @@ class Cache:
         target_blk.state = target_blk.get_next_state(op=op, source=source)
         self.num_operation = self.num_operation + 1
 
+        # Track stall time
+        if source == BlockSource.REMOTE_CACHE:
+            self.tracker.track_load_words_from_remote_cache(words=int(self.config.block_size / self.config.word_size))
+        elif source == BlockSource.MEMORY:
+            self.tracker.track_load_from_mem()
+
     def receive_word_from_bus(self, source: BlockSource, op: MemOperation, tag, cache_index, offset):
         blk_index = self.find_block(tag=tag, cache_index=cache_index)
         if blk_index == -1:
@@ -289,6 +316,10 @@ class Cache:
         # Set new state
         target_blk.state = target_blk.get_next_state(op=op, source=source)
         self.num_operation = self.num_operation + 1
+
+        # Track stall time
+        self.tracker.track_load_words_from_remote_cache(words=1)
+
 
     def log(self, message: str):
         print(f'CACHE {self.id}: {message}')

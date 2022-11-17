@@ -7,9 +7,10 @@ def preprocess_data(data: str):
     res = []
     
     for line in split_lines:
-        label, value = line.split(' ')
-        label = int(label)
-        res.append((label, value))
+        if len(line.split(' ')) == 2:
+            label, value = line.split(' ')
+            label = int(label)
+            res.append((label, value))
     
     return res
 

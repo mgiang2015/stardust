@@ -61,9 +61,8 @@ class Core:
         else:
             self.log(f"Processor load missed! Tag {tag} index {cache_index}")
             source = self.bus.bus_load_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
-
-        # Use source to keep track of cycles. should always be
-        self.tracker.track_load(source, int(self.cache.config.block_size / self.cache.config.word_size))
+        
+        self.tracker.incr_load()
 
     """
     handle_invalidation_store(self, address): Processor issues a PrWr on its own L1 cache.
@@ -82,8 +81,8 @@ class Core:
             self.log(f"Processor store miss! Tag {tag} index {cache_index}")
             source = self.bus.bus_load_exclusive_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
             self.cache.processor_invalidate_store(tag=tag, cache_index=cache_index, offset=offset)
-
-        self.tracker.track_store(source=source, words=int(self.cache.config.block_size / self.cache.config.word_size))
+        
+        self.tracker.incr_store()
 
     """
     def handle_update_load(self, address): Same as invalidate load, but calls a different bus request
@@ -99,7 +98,7 @@ class Core:
             source = self.bus.pr_load_miss_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
 
         # Use source to keep track of cycles. should always be
-        self.tracker.track_load(source, int(self.cache.config.block_size / self.cache.config.word_size))
+        self.tracker.incr_load()
 
     """
     handle_update_store(self, address): Update-based store. Issues a PrWr on its own L1 cache.
@@ -114,15 +113,15 @@ class Core:
             source = self.bus.pr_store_miss_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
             # Request bus for ownership if not loaded from memory by calling update
             if source == BlockSource.REMOTE_CACHE:
-                self.cache.processor_update_store(id=self.id, tag=tag, cache_index=cache_index, offset=offset)  # Write
+                self.cache.processor_update_store(tag=tag, cache_index=cache_index, offset=offset)  # Write
                 self.bus.bus_update_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)        # Claim ownership and update the rest
         elif state == BlockState.SHARED_CLEAN: # Get ownership of block. Must request on bus
-            self.cache.processor_update_store(id=self.id, tag=tag, cache_index=cache_index, offset=offset)      # Write
+            self.cache.processor_update_store(tag=tag, cache_index=cache_index, offset=offset)      # Write
             self.bus.bus_update_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)            # Claim ownership and update the rest
         elif state == BlockState.SHARED_MODIFIED: # Already has ownership of block. Request update all others.
             self.bus.bus_update_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
         
-        self.tracker.track_store(source=source, words=int(self.cache.config.block_size / self.cache.config.word_size))
+        self.tracker.incr_store()
        
     """
     handle_others(self, cycles): Basically increases overall execution cycle and compute cycle
@@ -139,8 +138,10 @@ class Core:
         print(f'Overall Execution Cycles: {self.tracker.overall_cycles}')
         print(f'Compute Cycles: {self.tracker.compute_cycles}')
         print(f'Idle cycles: {self.tracker.idle_cycles}')
-        print(f'Number of load operations: {self.tracker.num_load}')
-        print(f'Number of store operations: {self.tracker.num_store}')
-        print(f'Number of cache misses: {self.tracker.num_miss}')
+        print(f'Number of memory (load/store) operations: {self.tracker.num_store + self.tracker.num_load}')
+        if self.tracker.num_store + self.tracker.num_load > 0:
+            print('Miss rate: {:.2f}'.format(self.tracker.num_miss / (self.tracker.num_store + self.tracker.num_load)))
+        else:
+            print('No memory operations attempted')
         print(f'Number of accesses to private data: {self.tracker.num_private_access}')
         print(f'Number of accesses to shared data: {self.tracker.num_shared_access}')
