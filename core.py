@@ -138,8 +138,10 @@ class Core:
         print(f'Overall Execution Cycles: {self.tracker.overall_cycles}')
         print(f'Compute Cycles: {self.tracker.compute_cycles}')
         print(f'Idle cycles: {self.tracker.idle_cycles}')
-        print(f'Number of load operations: {self.tracker.num_load}')
-        print(f'Number of store operations: {self.tracker.num_store}')
-        print(f'Number of cache misses: {self.tracker.num_miss}')
+        print(f'Number of memory (load/store) operations: {self.tracker.num_store + self.tracker.num_load}')
+        if self.tracker.num_store + self.tracker.num_load > 0:
+            print('Miss rate: {:.2f}'.format(self.tracker.num_miss / (self.tracker.num_store + self.tracker.num_load)))
+        else:
+            print('No memory operations attempted')
         print(f'Number of accesses to private data: {self.tracker.num_private_access}')
         print(f'Number of accesses to shared data: {self.tracker.num_shared_access}')

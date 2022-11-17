@@ -143,5 +143,4 @@ class Bus:
     def print_stats(self):
         print(f'##### STATS FOR SHARED BUS #####')
         print(f'Data traffic: {self.tracker.data_traffic} bytes')
-        print(f'Number of invalidations: {self.tracker.num_invalidation}')
-        print(f'Number of updates: {self.tracker.num_update}')
+        print(f'Number of invalidations or updates: {self.tracker.num_invalidation + self.tracker.num_update}')
