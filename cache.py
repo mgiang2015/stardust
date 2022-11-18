@@ -248,7 +248,7 @@ class Cache:
         return True
 
     def bus_moesi_invalidate_load(self, tag, cache_index, offset):
-        self.log(f'Handling bus moesi invalidate load at tag {tag}, index {cache_index} and offset {offset}')
+        # self.log(f'Handling bus moesi invalidate load at tag {tag}, index {cache_index} and offset {offset}')
         block_index = self.find_block(tag, cache_index)
         if block_index == -1:
             return False
@@ -299,7 +299,7 @@ class Cache:
                     min_last_used = block.last_used
 
             # Invalidate chosen block
-            self.log(f'Evicting block with tag {target_blk.tag}')
+            # self.log(f'Evicting block with tag {target_blk.tag}')
             self.tracker.track_evict()
             target_blk.state = BlockState.INVALID
         

@@ -66,9 +66,10 @@ class Core:
         source = BlockSource.LOCAL_CACHE
         state = self.cache.processor_load(tag=tag, cache_index=cache_index, offset=offset)
         if state != BlockState.INVALID:
-            self.log(f"Processor load hit! Tag {tag} index {cache_index}")
+            # self.log(f"Processor load hit! Tag {tag} index {cache_index}")
+            pass
         else:
-            self.log(f"Processor load missed! Tag {tag} index {cache_index}")
+            # self.log(f"Processor load missed! Tag {tag} index {cache_index}")
             source = self.bus.bus_load_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
         
         self.tracker.incr_load()
@@ -84,10 +85,10 @@ class Core:
         state = self.cache.processor_invalidate_store(tag=tag, cache_index=cache_index, offset=offset)
         # hit but exclusive / modified: ignore
         if state == BlockState.SHARED: # hit and shared
-            self.log(f"Processor store hit! Tag {tag} index {cache_index}")
+            # self.log(f"Processor store hit! Tag {tag} index {cache_index}")
             self.bus.flush_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
         elif state == BlockState.INVALID: # miss
-            self.log(f"Processor store miss! Tag {tag} index {cache_index}")
+            # self.log(f"Processor store miss! Tag {tag} index {cache_index}")
             source = self.bus.bus_load_exclusive_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
             self.cache.processor_invalidate_store(tag=tag, cache_index=cache_index, offset=offset)
         
@@ -102,9 +103,10 @@ class Core:
         source = BlockSource.LOCAL_CACHE
         state = self.cache.processor_load(tag=tag, cache_index=cache_index, offset=offset)
         if state != BlockState.INVALID:
-            self.log(f"Processor load hit! Tag {tag} index {cache_index}")
+            # self.log(f"Processor load hit! Tag {tag} index {cache_index}")
+            pass
         else:
-            self.log(f"Processor load missed! Tag {tag} index {cache_index}")
+            # self.log(f"Processor load missed! Tag {tag} index {cache_index}")
             source = self.bus.bus_moesi_load_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
         
         self.tracker.incr_load()
@@ -117,9 +119,10 @@ class Core:
         source = BlockSource.LOCAL_CACHE
         state = self.cache.processor_load(tag=tag, cache_index=cache_index, offset=offset)
         if state != BlockState.INVALID:
-            self.log(f"Processor load hit! Tag {tag} index {cache_index}")
+            # self.log(f"Processor load hit! Tag {tag} index {cache_index}")
+            pass
         else:
-            self.log(f"Processor load missed! Tag {tag} index {cache_index}")
+            # self.log(f"Processor load missed! Tag {tag} index {cache_index}")
             source = self.bus.pr_load_miss_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
 
         # Use source to keep track of cycles. should always be
@@ -134,7 +137,7 @@ class Core:
         state = self.cache.processor_update_store(tag=tag, cache_index=cache_index, offset=offset)
         # Ignore EXCLUSIVE, MODIFIED
         if state == BlockState.INVALID: # miss
-            self.log(f"Processor store miss! Tag {tag} index {cache_index}")
+            # self.log(f"Processor store miss! Tag {tag} index {cache_index}")
             source = self.bus.pr_store_miss_request(id=self.id, tag=tag, cache_index=cache_index, offset=offset)
             # Request bus for ownership if not loaded from memory by calling update
             if source == BlockSource.REMOTE_CACHE:

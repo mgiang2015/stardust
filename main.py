@@ -26,7 +26,7 @@ if __name__ == "__main__":
         protocol = Protocol.NONE
     
     trace = sys.argv[2]                 # bodytrack, blackscholes, fluidanimate
-    cache_size = int(sys.argv[3])       # Default 4000 bytes (4KB)
+    cache_size = int(sys.argv[3])       # Default 4096 bytes (4KB)
     associativity = int(sys.argv[4])    # Default 2-way
     block_size = int(sys.argv[5])       # Default 32 bytes
     word_size = 4                       # Default 4 bytes
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     print(f'Protocol: {protocol}\nTrace file: {trace}\nCache size: {cache_size} bytes\nAssociativiy: {associativity}-way\nBlock size: {block_size} bytes')
 
     cacheConfig = CacheConfig(size=cache_size, associativity=associativity, block_size=block_size, word_size=word_size, protocol=protocol)
-    system = System(protocol=protocol, processor_num=processor_num, cache_config=cacheConfig, filename=f'{protocol}_{trace}_{cache_size}_{associativity}_{block_size}')
+    system = System(protocol=protocol, processor_num=processor_num, cache_config=cacheConfig, filename=f'{protocol}_{trace}_{cache_size}_{associativity}_{block_size}.txt')
 
     # Read trace file and feed to system
     for i in range(0, processor_num):
