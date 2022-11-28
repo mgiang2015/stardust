@@ -8,3 +8,6 @@ venv/
 traces/blackscholes_*
 traces/bodytrack_*
 traces/fluidanimate_*
+
+# result folder
+trace_res/
