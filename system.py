@@ -40,7 +40,7 @@ class System:
         for thread in self.threads:
             thread.join()
 
-        print("\n\nSTITISTACS\n\n")
+        print("\n\n**STATISTICS**\n\n")
         
         # Direct this to a file instead of stdout
         with open(self.filename, 'w+') as sys.stdout:
